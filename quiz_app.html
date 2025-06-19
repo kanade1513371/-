@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>クイズアプリ 管理者設定</title>
+  <style>
+    body { font-family: sans-serif; margin: 0; background: #f9f9f9; }
+    header, main { padding: 20px; }
+    .tabs { margin-bottom: 10px; }
+    .tab-btn {
+      padding: 8px 16px; margin-right: 5px;
+      border: none; border-radius: 4px;
+      background: #e0e0e0; cursor: pointer;
+    }
+    .tab-btn.active { background: #007BFF; color: #fff; }
+    .section { display: none; }
+    .section.active { display: block; }
+    .control-bar { margin-bottom: 10px; }
+    .control-bar input, .control-bar select { margin-right: 5px; font-size: 16px; padding: 5px; border: 1px solid #ccc; border-radius: 4px;}
+    .control-bar button { padding: 8px 15px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    .control-bar button:hover { opacity: 0.9; }
+
+    .pattern-container { margin: 10px 0; padding: 10px; border: 1px solid #ccc; background: #fff; border-radius: 5px; }
+    .problem-btn, .pattern-btn { margin: 0 5px 5px 0; padding: 5px 10px; background-color: #007BFF; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    .problem-btn:hover, .pattern-btn:hover { opacity: 0.9; }
+    
+    /* 画像設定のスタイル */
+    .image-setting-item {
+        border: 1px dashed #aaa;
+        padding: 15px;
+        margin-bottom: 15px;
+        background-color: #f0f0f0;
+        border-radius: 5px;
+        position: relative; /* 削除ボタンの配置用 */
+    }
+    .image-setting-item h4 { margin-top: 0; margin-bottom: 10px; color: #333; }
+    .image-setting-item label { display: inline-block; margin-right: 15px; margin-bottom: 8px; }
+    .image-setting-item input[type="text"],
+    .image-setting-item input[type="number"],
+    .image-setting-item input[type="color"] {
+        padding: 5px;
+        border: 1px solid #ccc;
+        border-radius: 3px;
+    }
+    .image-setting-item img {
+        border: 1px solid #ddd;
+        padding: 2px;
+        background-color: white;
+    }
+    .image-setting-item fieldset {
+        border: 1px solid #bbb;
+        border-radius: 5px;
+        padding: 10px;
+        margin-top: 10px;
+        margin-bottom: 10px;
+    }
+    .image-setting-item legend {
+        font-weight: bold;
+        color: #555;
+    }
+    .image-setting-item button {
+        padding: 5px 10px;
+        background-color: #dc3545; /* 赤系の削除ボタン */
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    .image-setting-item button:hover { opacity: 0.9; }
+    /* 個別の削除ボタン (X/パターン削除/問題削除) */
+    .pattern-container > button { background-color: #6c757d; } /* 灰色 */
+    .problem-btn + button { background-color: #ffc107; color: #333; } /* 黄色 */
+
+    /* ローディング画面 */
+    #loadingScreen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: #fff;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+        z-index: 9999;
+    }
+    #loadingScreen.hidden {
+        display: none;
+    }
+    .spinner {
+        border: 8px solid #f3f3f3;
+        border-top: 8px solid #007BFF;
+        border-radius: 50%;
+        width: 60px;
+        height: 60px;
+        animation: spin 2s linear infinite;
+        margin-bottom: 20px;
+    }
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    /* トーストメッセージのスタイル */
+    #toastMessage {
+        visibility: hidden; /* Hidden by default. Visible on click */
+        min-width: 250px; /* Set a default minimum width */
+        margin-left: -125px; /* Divide value of min-width by 2 */
+        background-color: #333; /* Black background color */
+        color: #fff; /* White text color */
+        text-align: center; /* Centered text */
+        border-radius: 2px; /* Rounded borders */
+        padding: 16px; /* Padding */
+        position: fixed; /* Sit on top of the screen */
+        z-index: 10000; /* Add a z-index if needed */
+        left: 50%; /* Center the snackbar */
+        bottom: 30px; /* 30px from the bottom */
+        font-size: 18px;
+    }
+
+    /* Show the snackbar when clicking on a button (class added with JavaScript) */
+    #toastMessage.show {
+        visibility: visible; /* Show the snackbar */
+        /* Add animation: Take 0.5 seconds to fade in and out the snackbar.
+        However, delay the fade out process for 2.5 seconds */
+        -webkit-animation: fadein 0.5s, fadeout 0.5s 2.5s;
+        animation: fadein 0.5s, fadeout 0.5s 2.5s;
+    }
+
+    /* Animations to fade the snackbar in and out */
+    @-webkit-keyframes fadein {
+        from {bottom: 0; opacity: 0;}
+        to {bottom: 30px; opacity: 1;}
+    }
+
+    @keyframes fadein {
+        from {bottom: 0; opacity: 0;}
+        to {bottom: 30px; opacity: 1;}
+    }
+
+    @-webkit-keyframes fadeout {
+        from {bottom: 30px; opacity: 1;}
+        to {bottom: 0; opacity: 0;}
+    }
+
+    @keyframes fadeout {
+        from {bottom: 30px; opacity: 1;}
+        to {bottom: 0; opacity: 0;}
+    }
+
+    /* クイズプレイ画面のスタイル */
+    #quizPlayScreen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      background-color: white; /* 初期値、JSで変更 */
+      opacity: 1.0; /* 初期値、JSで変更 */
+      z-index: 1;
+      overflow: hidden; /* 画像がはみ出さないように */
+    }
+
+    #playOpeningImages {
+      position: absolute; /* 画像コンテナは絶対配置 */
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      pointer-events: none; /* 下の要素をクリックできるように */
+    }
+  </style>
+</head>
+<body>
+
+<div id="loadingScreen">
+    <div class="spinner"></div>
+    <p>アプリを準備中です。もうしばらくお待ちください...</p>
+</div>
+
+<div id="adminLoginScreen" style="display:none; text-align:center; margin-top:20vh;">
+    <h1>管理者ログイン</h1>
+    <p>管理者パスワードを入力してください。（空欄でもログインできます）</p>
+    <input type="password" id="adminPassword" placeholder="パスワード">
+    <button id="loginButton" onclick="loginAdmin()">ログイン</button>
+</div>
+
+<main id="adminMain" style="display:none;">
+  <div class="control-bar">
+    <input type="text" id="settingName" placeholder="設定名を入力">
+    <button onclick="saveSettings()">保存</button>
+    <select id="settingSelect">
+      <option value="">-- 読み込み／書き出し --</option>
+    </select>
+    <button onclick="loadSettings()">読み込み</button>
+    <button onclick="exportJSON()">書き出し</button>
+    <label for="importFile" style="cursor: pointer; padding: 8px 15px; background-color: #17a2b8; color: white; border-radius: 4px; display: inline-block;">
+      インポート
+    </label>
+    <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importJSON(event)">
+    <button onclick="resetCurrentSettings()">リセット</button> <br><br>
+    <label>管理者パスワード変更：<input type="password" id="newAdminPassword" placeholder="新しいパスワード"></label>
+    <button onclick="changeAdminPassword()">パスワード変更</button>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('openingSetting')">オープニング</button>
+    <button class="tab-btn" onclick="switchTab('clearSetting')">クリア</button>
+    <button class="tab-btn" onclick="switchTab('loseSetting')">はずれ</button>
+    <button class="tab-btn" onclick="switchTab('winSetting')">あたり</button>
+    <button class="tab-btn" onclick="switchTab('quizSetting')">パターン・問題</button>
+  </div>
+
+  <div id="openingSetting" class="section active">
+    <h2>オープニング設定</h2>
+    <label>タイトル：<input type="text" id="openingTitle" oninput="updateCurrentOpening('title', this.value)"></label><br>
+    <label>説明文：<textarea id="openingDesc" rows="2" cols="30" oninput="updateCurrentOpening('desc', this.value)"></textarea></label><br>
+    <label>表示形式：<select id="openingMode" onchange="updateCurrentOpening('mode', this.value)">
+      <option value="sequential">コマ送り</option>
+      <option value="all">一括</option>
+    </select></label><br>
+    <label>背景色：<input type="color" id="openingBgColor" oninput="updateCurrentOpening('bgColor', this.value)"></label>
+    <label>透明度：<input type="number" min="0" max="1" step="0.1" id="openingBgOpacity" oninput="updateCurrentOpening('bgOpacity', parseFloat(this.value))">（0.0～1.0）</label>
+    <br><br>
+
+    <h3>画像設定</h3>
+    <button onclick="addImage()">画像追加</button>
+    <div id="openingImagesArea">
+        </div>
+  </div>
+
+  <div id="clearSetting" class="section"><h2>クリア設定（仮）</h2></div>
+  <div id="loseSetting" class="section"><h2>はずれ設定（仮）</h2></div>
+  <div id="winSetting" class="section"><h2>あたり設定（仮）</h2></div>
+
+  <div id="quizSetting" class="section">
+    <h2>パターン・問題設定</h2>
+    <button onclick="addPattern()">パターン追加</button><span>※最大10</span>
+    <div id="patternsArea"></div>
+  </div>
+</main>
+
+<div id="quizPlayScreen" style="display:none;">
+    <div id="playOpeningImages"></div>
+    <h1 id="playOpeningTitle"></h1>
+    <p id="playOpeningDesc"></p>
+    <div id="patternSelectionArea">
+        </div>
+</div>
+
+<div id="toastMessage">Enterキーで管理者設定画面を開きます。</div>
+
+<button onclick="showAdminLogin()" style="position:fixed; bottom:10px; right:10px; padding:10px; background-color:#555; color:white; border:none; border-radius:5px; z-index:1000;">管理者設定</button>
+
+
+<script>
+  // ★管理者パスワード。空白にするとパスワードなしでログイン可能になります。
+  let ADMIN_PASSWORD = ''; // ★ここを空文字列に変更 ★
+
+  let settings = {}; // localStorageに保存されている全設定
+  let current = { // 現在編集中の設定
+    opening: {
+      title: '',
+      desc: '',
+      mode: 'sequential',
+      bgColor: '#ffffff',
+      bgOpacity: 1.0,
+      images: [] // 画像設定を保持する配列
+    },
+    clear: {}, // 仮
+    lose: {},  // 仮
+    win: {},   // 仮
+    quiz: { patterns: [ { name: 'パターン1', problems: [ {} ] } ] } // 初期パターン構造
+  };
+
+  // --- 新しい設定自動読み込みの定数 ---
+  // アプリ起動時に自動で読み込むJSONファイルのパス
+  // 例: quiz_app.html と同じ階層にある 設定.json なら '設定.json'
+  // 例: public/data/quiz_data.json なら '/data/quiz_data.json'
+  const AUTO_LOAD_JSON_PATH = '設定.json'; // ★ここを '設定.json' に変更 ★
+
+  // ----------------------------------------------------
+  // 管理者ログイン関連
+  // ----------------------------------------------------
+  document.addEventListener('keydown', (e) => {
+    // Enterキー で管理者ログイン画面表示
+    if (e.key === 'Enter' && !document.getElementById('adminLoginScreen').style.display.includes('block')) { // ログイン画面が非表示の場合のみ
+      showAdminLogin();
+      e.preventDefault(); // Enterキーのデフォルト動作（改行など）を防止
+    }
+  });
+
+  // パスワード入力欄でEnterキーが押されたらログイン
+  document.getElementById('adminPassword').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+          loginAdmin();
+          e.preventDefault(); // Enterキーのデフォルト動作を防止
+      }
+  });
+
+  // 管理者ログイン画面表示用の関数（ボタンから呼び出す用）
+  function showAdminLogin() {
+      document.getElementById('loadingScreen').classList.add('hidden'); // ローディング隠す
+      document.getElementById('quizPlayScreen').style.display = 'none'; // クイズプレイ画面も隠す
+      document.getElementById('adminLoginScreen').style.display = 'block'; // ログイン画面表示
+      document.getElementById('adminPassword').focus(); // パスワード入力欄にフォーカス
+      showToast('パスワードを入力してください。（空欄でもOK）'); // トーストメッセージ
+  }
+
+  function loginAdmin() {
+    const enteredPassword = document.getElementById('adminPassword').value;
+    if (enteredPassword === ADMIN_PASSWORD) { // ADMIN_PASSWORDが空なら、enteredPasswordが空でもOK
+      document.getElementById('adminLoginScreen').style.display = 'none'; // ログイン画面隠す
+      document.getElementById('adminMain').style.display = 'block'; // 管理者メイン表示
+      alert('ログインしました。');
+      // ログイン時に設定を初期ロード（既にloadInitialSettingsでロード済みなのでUIを更新する）
+      updateUIFromCurrent(); // これで current の内容がUIに反映される
+    } else {
+      alert('パスワードが違います。');
+    }
+  }
+
+  function changeAdminPassword() {
+    const newPass = document.getElementById('newAdminPassword').value;
+    if (newPass === '') {
+      if (!confirm('パスワードを「空」に変更しますか？\n次回からパスワード入力なしでログインできます。')) return;
+    } else {
+      if (!confirm(`パスワードを "${newPass}" に変更しますか？\n変更後、この設定を保存してアプリを再デプロイする必要があります。`)) return;
+    }
+    
+    ADMIN_PASSWORD = newPass; 
+    alert('パスワードは現在のセッションで変更されました。この設定を「保存」し、JSONを「書き出し」てアプリを再デプロイすることで、新しいパスワードが有効になります。');
+    document.getElementById('newAdminPassword').value = '';
+  }
+
+  // ----------------------------------------------------
+  // 設定の保存・読み込み・出力・リセット・インポート
+  // ----------------------------------------------------
+  function updateSelect() {
+    const sel = document.getElementById('settingSelect');
+    sel.innerHTML = '<option value="">-- 読み込み／書き出し --</option>';
+    Object.keys(settings).forEach(name => {
+      const o = document.createElement('option');
+      o.value = name; o.textContent = name;
+      sel.appendChild(o);
+    });
+  }
+
+  function saveSettings() {
+    const name = document.getElementById('settingName').value;
+    if (!name) return alert('設定名を入力してください');
+    
+    const dataToSave = JSON.parse(JSON.stringify(current));
+    dataToSave.adminPassword = ADMIN_PASSWORD; 
+
+    settings[name] = dataToSave;
+    localStorage.setItem('quizSettings', JSON.stringify(settings));
+    updateSelect();
+    alert('保存しました：' + name);
+  }
+
+  function loadSettings() {
+    const name = document.getElementById('settingSelect').value;
+    if (!name || !settings[name]) return alert('読込対象を選んでください');
+    
+    current = JSON.parse(JSON.stringify(settings[name]));
+    if (settings[name].adminPassword !== undefined) { // パスワード情報がundefinedでなければ更新
+        ADMIN_PASSWORD = settings[name].adminPassword;
+        document.getElementById('newAdminPassword').value = ''; // パスワード変更欄をクリア
+    }
+    
+    updateUIFromCurrent();
+    document.getElementById('settingName').value = name;
+    alert('読み込みました：' + name);
+  }
+
+  function exportJSON() {
+    const name = document.getElementById('settingSelect').value;
+    if (!name || !settings[name]) return alert('出力対象を選んでください');
+    
+    const dataToExport = JSON.parse(JSON.stringify(settings[name]));
+    dataToExport.adminPassword = ADMIN_PASSWORD; 
+
+    const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function importJSON(event) {
+    const file = event.target.files[0];
+    if (!file) {
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const importedData = JSON.parse(e.target.result);
+        const fileNameWithoutExtension = file.name.replace(/\.json$/i, '');
+        
+        settings[fileNameWithoutExtension] = importedData;
+        localStorage.setItem('quizSettings', JSON.stringify(settings));
+        updateSelect();
+        showToast(`ファイル "${file.name}" をインポートしました。設定名: "${fileNameWithoutExtension}"`);
+        
+        document.getElementById('settingSelect').value = fileNameWithoutExtension;
+        loadSettings();
+        event.target.value = '';
+      } catch (error) {
+        alert('JSONファイルの読み込みまたは解析に失敗しました。ファイルが破損しているか、JSON形式が正しくありません。\nエラー: ' + error.message);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function resetCurrentSettings() {
+    if (!confirm('現在編集中の内容をリセットし、初期状態に戻しますか？\n(保存済みの設定は削除されません)')) return;
+    
+    current = {
+      opening: {
+        title: '', desc: '', mode: 'sequential', bgColor: '#ffffff', bgOpacity: 1.0, images: []
+      },
+      clear: {}, lose: {}, win: {},
+      quiz: { patterns: [ { name: 'パターン1', problems: [ {} ] } ] }
+    };
+    
+    updateUIFromCurrent();
+    document.getElementById('settingName').value = '';
+    showToast('現在の作業内容を初期化しました');
+  }
+
+  // ----------------------------------------------------
+  // UIの更新
+  // ----------------------------------------------------
+  function updateUIFromCurrent() {
+    // オープニング設定
+    document.getElementById('openingTitle').value = current.opening.title || '';
+    document.getElementById('openingDesc').value = current.opening.desc || '';
+    document.getElementById('openingMode').value = current.opening.mode || 'sequential';
+    document.getElementById('openingBgColor').value = current.opening.bgColor || '#ffffff';
+    document.getElementById('openingBgOpacity').value = current.opening.bgOpacity !== undefined ? current.opening.bgOpacity : 1.0;
+    renderOpeningImages(); // 画像設定を再レンダリング
+
+    // パターン・問題設定
+    renderPatterns();
+
+    // タブはデフォルトでオープニングを選択
+    switchTab('openingSetting');
+  }
+
+  // ----------------------------------------------------
+  // 初期ロード時処理
+  // ----------------------------------------------------
+  async function loadInitialSettings() {
+    let loadedFromLocal = false; // ローカルストレージから読み込んだかどうかのフラグ
+
+    // 1. まずローカルストレージから設定を試みる（管理者設定画面用）
+    const storedSettings = localStorage.getItem('quizSettings');
+    if (storedSettings) {
+      settings = JSON.parse(storedSettings);
+      updateSelect();
+      // 最初の設定があればそれを current にロード
+      const firstSettingName = Object.keys(settings)[0];
+      if (firstSettingName) {
+        current = JSON.parse(JSON.stringify(settings[firstSettingName]));
+        // ローカルストレージのパスワードがあれば更新
+        if (settings[firstSettingName].adminPassword !== undefined) { // undefinedでないことを確認
+            ADMIN_PASSWORD = settings[firstSettingName].adminPassword;
+        }
+        document.getElementById('settingName').value = firstSettingName; // 設定名もUIに表示
+        loadedFromLocal = true;
+      }
+    }
+
+    // 2. サーバーからJSONを読み込む (AUTO_LOAD_JSON_PATH が指定されている場合)
+    if (AUTO_LOAD_JSON_PATH) {
+        try {
+            console.log(`Attempting to load settings from server: ${AUTO_LOAD_JSON_PATH}`);
+            const response = await fetch(AUTO_LOAD_JSON_PATH);
+            if (!response.ok) {
+                // 404 Not Found など、ファイルが見つからない場合はエラーを投げる
+                throw new Error(`Failed to load ${AUTO_LOAD_JSON_PATH}: ${response.status} ${response.statusText}`);
+            }
+            const data = await response.json();
+            
+            // 読み込んだデータを 'autoLoad' という名前で settings に追加し、current にも設定
+            const autoLoadName = AUTO_LOAD_JSON_PATH.replace(/\.json$/i, '') || 'autoLoad';
+            // settingsに既存の'autoLoad'があれば上書き、なければ新規追加
+            settings[autoLoadName] = data; 
+            localStorage.setItem('quizSettings', JSON.stringify(settings)); // ローカルストレージにも保存
+            updateSelect(); // プルダウンを更新
+
+            current = JSON.parse(JSON.stringify(data)); // current に直接設定
+            // サーバーから読み込んだデータにadminPasswordが含まれていれば更新
+            if (data.adminPassword !== undefined) { // undefinedでないことを確認
+                ADMIN_PASSWORD = data.adminPassword;
+            }
+            document.getElementById('settingName').value = autoLoadName; // UIに設定名を表示
+            showToast(`サーバーから自動的に設定「${autoLoadName}」を読み込みました。`);
+
+        } catch (error) {
+            console.error("Error loading initial JSON from server:", error);
+            showToast("サーバーからの初期設定読み込みに失敗しました。デフォルト設定を使用します。");
+            // サーバーから読み込めなかった場合は、初期UIを表示 (loadedFromLocalがtrueでなければ)
+            if (!loadedFromLocal) {
+                updateUIFromCurrent(); 
+            }
+        }
+    } else if (!loadedFromLocal) {
+        // AUTO_LOAD_JSON_PATHが指定されておらず、ローカルからも読み込めなかった場合
+        updateUIFromCurrent();
+    }
+
+    // 最終的に現在のcurrent設定でUIを更新
+    updateUIFromCurrent(); 
+  }
+
+  // ----------------------------------------------------
+  // タブ切り替え
+  // ----------------------------------------------------
+  function switchTab(id) {
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    const targetButton = document.querySelector(`.tab-btn[onclick="switchTab('${id}')"]`);
+    if(targetButton) {
+        targetButton.classList.add('active');
+    }
+    document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+
+  // ----------------------------------------------------
+  // オープニング設定関連
+  // ----------------------------------------------------
+  function updateCurrentOpening(key, value) {
+      current.opening[key] = value;
+  }
+
+  function getDefaultImageSettings() {
+      return {
+          fileData: '',
+          fileName: '',
+          x: '0px',
+          y: '0px',
+          width: 'auto',
+          caption: '',
+          captionColor: '#000000',
+          captionSize: '16px',
+          order: 0,
+          alignX: 'left',
+          alignY: 'top'
+      };
+  }
+
+  function addImage() {
+      current.opening.images.push(getDefaultImageSettings());
+      renderOpeningImages();
+  }
+
+  function deleteImage(index) {
+      if (confirm('この画像を削除しますか？')) {
+          current.opening.images.splice(index, 1);
+          renderOpeningImages();
+      }
+  }
+
+  function renderOpeningImages() {
+      const area = document.getElementById('openingImagesArea');
+      area.innerHTML = '';
+
+      current.opening.images.forEach((img, index) => {
+          const div = document.createElement('div');
+          div.className = 'image-setting-item';
+          div.setAttribute('draggable', 'true');
+          div.setAttribute('data-index', index);
+          
+          div.innerHTML = `
+              <h4>画像 ${index + 1}</h4>
+              <button style="position:absolute; top:5px; right:5px;" onclick="deleteImage(${index})">削除</button>
+              <label>画像ファイル：
+                  <input type="file" accept="image/*" id="imageFile_${index}" onchange="handleImageUpload(event, ${index})">
+              </label><br>
+              ${img.fileData ? `<img src="${img.fileData}" style="max-width:100px; max-height:100px; display:block; margin:5px 0;">` : ''}
+              <span>ファイル名: ${img.fileName || 'なし'}</span><br>
+              
+              <label>X座標：<input type="text" value="${img.x}" oninput="updateImageSetting(${index}, 'x', this.value)"></label>
+              <label>Y座標：<input type="text" value="${img.y}" oninput="updateImageSetting(${index}, 'y', this.value)"></label><br>
+              <label>幅：<input type="text" value="${img.width}" oninput="updateImageSetting(${index}, 'width', this.value)"></label> (例: 100px, 50%, auto)<br>
+              
+              <fieldset>
+                  <legend>位置揃え：</legend>
+                  <label><input type="radio" name="alignX_${index}" value="left" ${img.alignX === 'left' ? 'checked' : ''} onclick="updateImageSetting(${index}, 'alignX', this.value)">左揃え</label>
+                  <label><input type="radio" name="alignX_${index}" value="center" ${img.alignX === 'center' ? 'checked' : ''} onclick="updateImageSetting(${index}, 'alignX', this.value)">左右中央揃え</label>
+                  <label><input type="radio" name="alignX_${index}" value="right" ${img.alignX === 'right' ? 'checked' : ''} onclick="updateImageSetting(${index}, 'alignX', this.value)">右揃え</label><br>
+                  <label><input type="radio" name="alignY_${index}" value="top" ${img.alignY === 'top' ? 'checked' : ''} onclick="updateImageSetting(${index}, 'alignY', this.value)">上揃え</label>
+                  <label><input type="radio" name="alignY_${index}" value="middle" ${img.alignY === 'middle' ? 'checked' : ''} onclick="updateImageSetting(${index}, 'alignY', this.value)">上下中央揃え</label>
+                  <label><input type="radio" name="alignY_${index}" value="bottom" ${img.alignY === 'bottom' ? 'checked' : ''} onclick="updateImageSetting(${index}, 'alignY', this.value)">下揃え</label>
+              </fieldset>
+              
+              <label>セリフ：<input type="text" value="${img.caption}" oninput="updateImageSetting(${index}, 'caption', this.value)"></label><br>
+              <label>文字色：<input type="color" value="${img.captionColor}" oninput="updateImageSetting(${index}, 'captionColor', this.value)"></label>
+              <label>文字サイズ：<input type="text" value="${img.captionSize}" oninput="updateImageSetting(${index}, 'captionSize', this.value)"></label> (例: 16px, 1em)<br>
+              <label>表示順序（z-index）：<input type="number" value="${img.order}" oninput="updateImageSetting(${index}, 'order', parseInt(this.value))"></label><br>
+          `;
+          area.appendChild(div);
+      });
+      addDragAndDropListeners();
+  }
+
+  function updateImageSetting(index, key, value) {
+      if (current.opening.images[index]) {
+          current.opening.images[index][key] = value;
+      }
+  }
+
+  function handleImageUpload(event, index) {
+      const file = event.target.files[0];
+      if (file) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+              current.opening.images[index].fileData = e.target.result;
+              current.opening.images[index].fileName = file.name;
+              renderOpeningImages();
+          };
+          reader.readAsDataURL(file);
+      }
+  }
+
+  let dragSrcEl = null;
+
+  function handleDragStart(e) {
+      dragSrcEl = this;
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/html', this.innerHTML);
+      this.classList.add('dragging');
+  }
+
+  function handleDragOver(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+  }
+
+  function handleDragEnter(e) {
+      this.classList.add('over');
+  }
+
+  function handleDragLeave(e) {
+      this.classList.remove('over');
+  }
+
+  function handleDrop(e) {
+      e.stopPropagation();
+      if (dragSrcEl !== this) {
+          const fromIndex = parseInt(dragSrcEl.dataset.index);
+          const toIndex = parseInt(this.dataset.index);
+          
+          const [removed] = current.opening.images.splice(fromIndex, 1);
+          current.opening.images.splice(toIndex, 0, removed);
+          
+          renderOpeningImages();
+      }
+      return false;
+  }
+
+  function handleDragEnd(e) {
+      this.classList.remove('dragging');
+      document.querySelectorAll('.image-setting-item').forEach(item => {
+          item.classList.remove('over');
+      });
+  }
+
+  function addDragAndDropListeners() {
+      const items = document.querySelectorAll('.image-setting-item');
+      items.forEach(item => {
+          item.addEventListener('dragstart', handleDragStart);
+          item.addEventListener('dragover', handleDragOver);
+          item.addEventListener('dragenter', handleDragEnter);
+          item.addEventListener('dragleave', handleDragLeave);
+          item.addEventListener('drop', handleDrop);
+          item.addEventListener('dragend', handleDragEnd);
+      });
+  }
+
+  // ----------------------------------------------------
+  // パターン・問題設定関連
+  // ----------------------------------------------------
+  function addPattern() {
+    const pats = current.quiz.patterns;
+    if (pats.length >= 10) return alert('最大10パターンです');
+    const newPatternName = `パターン ${pats.length + 1}`;
+    pats.push({ name: newPatternName, problems: [ {} ] });
+    renderPatterns();
+  }
+
+  function renderPatterns() {
+    const area = document.getElementById('patternsArea');
+    area.innerHTML = '';
+    current.quiz.patterns.forEach((p, pi) => {
+      const container = document.createElement('div');
+      container.className = 'pattern-container';
+      container.innerHTML = `
+        <strong>パターン ${pi+1}</strong> 
+        <label>パターン名：<input type="text" value="${p.name || ''}" oninput="updatePatternName(${pi}, this.value)"></label>
+      `;
+      const delP = document.createElement('button');
+      delP.textContent = '削除';
+      delP.onclick = () => {
+        if (confirm('本当にこのパターンを削除しますか？')) {
+          current.quiz.patterns.splice(pi,1);
+          renderPatterns();
+        }
+      };
+      container.appendChild(delP);
+
+      p.problems.forEach((_, qi) => {
+        const btn = document.createElement('button');
+        btn.textContent = '問題 ' + (qi+1);
+        btn.className = 'problem-btn';
+        btn.onclick = () => alert('パターン' + (pi+1) + 'の問題 ' + (qi+1) + ' 編集（仮）'); 
+        container.appendChild(btn);
+
+        const delQ = document.createElement('button');
+        delQ.textContent = '×';
+        delQ.onclick = (e) => {
+          e.stopPropagation();
+          if (confirm(`パターン ${pi+1} の問題 ${qi+1} を削除しますか？`)) {
+            current.quiz.patterns[pi].problems.splice(qi, 1);
+            renderPatterns();
+          }
+        };
+        container.appendChild(delQ);
+      });
+
+      const addQ = document.createElement('button');
+      addQ.textContent = '問題追加';
+      addQ.onclick = () => {
+        current.quiz.patterns[pi].problems.push({});
+        renderPatterns();
+      };
+      container.appendChild(addQ);
+      area.appendChild(container);
+    });
+  }
+
+  function updatePatternName(patternIndex, newName) {
+    if (current.quiz.patterns[patternIndex]) {
+      current.quiz.patterns[patternIndex].name = newName;
+    }
+  }
+
+  // ----------------------------------------------------
+  // トーストメッセージ表示
+  // ----------------------------------------------------
+  function showToast(message) {
+    const toast = document.getElementById("toastMessage");
+    toast.textContent = message;
+    toast.className = "show";
+    setTimeout(function(){ toast.className = toast.className.replace("show", ""); }, 3000);
+  }
+
+  // ----------------------------------------------------
+  // アプリケーション起動時の表示
+  // ----------------------------------------------------
+  function initializeQuizPlayScreen() {
+      const playTitle = document.getElementById('playOpeningTitle');
+      const playDesc = document.getElementById('playOpeningDesc');
+      const playImagesArea = document.getElementById('playOpeningImages');
+      const quizPlayScreen = document.getElementById('quizPlayScreen');
+
+      document.getElementById('adminLoginScreen').style.display = 'none';
+      document.getElementById('adminMain').style.display = 'none';
+      document.getElementById('loadingScreen').classList.add('hidden');
+      
+      quizPlayScreen.style.display = 'block';
+
+      playTitle.textContent = current.opening.title || 'クイズアプリへようこそ！';
+      playDesc.textContent = current.opening.desc || '開始するにはパターンを選択してください。';
+      
+      quizPlayScreen.style.backgroundColor = current.opening.bgColor;
+      quizPlayScreen.style.opacity = current.opening.bgOpacity;
+
+      playImagesArea.innerHTML = '';
+      current.opening.images.forEach(img => {
+          if (img.fileData) {
+              const imgContainer = document.createElement('div'); // 画像とセリフをまとめるコンテナ
+              imgContainer.style.position = 'absolute'; // 絶対配置
+              imgContainer.style.left = img.x;
+              imgContainer.style.top = img.y;
+              imgContainer.style.width = img.width;
+              imgContainer.style.zIndex = img.order;
+              
+              let transformOriginX = '0%';
+              if (img.alignX === 'center') transformOriginX = '50%';
+              if (img.alignX === 'right') transformOriginX = '100%';
+
+              let transformOriginY = '0%';
+              if (img.alignY === 'middle') transformOriginY = '50%';
+              if (img.alignY === 'bottom') transformOriginY = '100%';
+
+              let transformTranslateX = '0%';
+              if (img.alignX === 'center') transformTranslateX = '-50%';
+              if (img.alignX === 'right') transformTranslateX = '-100%';
+
+              let transformTranslateY = '0%';
+              if (img.alignY === 'middle') transformTranslateY = '-50%';
+              if (img.alignY === 'bottom') transformTranslateY = '-100%';
+
+              imgContainer.style.transform = `translate(${transformTranslateX}, ${transformTranslateY})`;
+              imgContainer.style.transformOrigin = `${transformOriginX} ${transformOriginY}`;
+
+
+              const imgElement = document.createElement('img');
+              imgElement.src = img.fileData;
+              imgElement.alt = img.caption || 'イメージ';
+              imgElement.style.maxWidth = '100%';
+              imgElement.style.height = 'auto';
+
+              imgContainer.appendChild(imgElement);
+              
+              if (img.caption) {
+                  const captionElement = document.createElement('p');
+                  captionElement.textContent = img.caption;
+                  captionElement.style.color = img.captionColor;
+                  captionElement.style.fontSize = img.captionSize;
+                  captionElement.style.position = 'absolute';
+                  captionElement.style.left = '50%';
+                  captionElement.style.bottom = '-1.5em';
+                  captionElement.style.transform = 'translateX(-50%)';
+                  captionElement.style.whiteSpace = 'nowrap';
+                  captionElement.style.padding = '2px 5px';
+                  captionElement.style.backgroundColor = 'rgba(255,255,255,0.7)';
+                  captionElement.style.borderRadius = '3px';
+                  imgContainer.appendChild(captionElement);
+              }
+              playImagesArea.appendChild(imgContainer);
+          }
+      });
+  }
+
+
+  // 初期ロード時処理 (DOMContentLoaded) の修正
+  document.addEventListener('DOMContentLoaded', async () => {
+      // まずはローディング画面を表示
+      document.getElementById('loadingScreen').classList.remove('hidden');
+      document.getElementById('adminLoginScreen').style.display = 'none';
+      document.getElementById('adminMain').style.display = 'none';
+      document.getElementById('quizPlayScreen').style.display = 'none';
+
+      await loadInitialSettings(); // 設定読み込みを待つ
+      initializeQuizPlayScreen(); // 設定読み込み後に画面を初期化
+
+      // 最初のトーストメッセージを表示
+      showToast('Enterキーで管理者設定画面を開きます。');
+  });
+
+</script>
+</body>
+</html>
